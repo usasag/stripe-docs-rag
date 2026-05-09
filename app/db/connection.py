@@ -54,7 +54,12 @@ class ConnectionFactory:
         elif url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql+psycopg://', 1)
             
-        self._engine = create_engine(url)
+        self._engine = create_engine(
+            url,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True
+        )
         return self._engine
 
     def get_session(self) -> Any:

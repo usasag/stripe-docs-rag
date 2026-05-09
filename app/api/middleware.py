@@ -1,9 +1,9 @@
 """API middleware stack: request IDs, error handling, rate limiting, timeouts."""
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-from collections import defaultdict
 from typing import Callable
 
 from fastapi import Request, Response
@@ -11,6 +11,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.exceptions import AppError, SessionNotFoundError, RateLimitError, AuthenticationError
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +61,8 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 status_code=400,
                 content={'error': 'app_error', 'detail': str(exc)},
             )
-        except Exception as exc:
+        except Exception:
+            logger.exception("Unhandled server error")
             return JSONResponse(
                 status_code=500,
                 content={'error': 'internal', 'detail': 'An unexpected error occurred'},
@@ -96,13 +99,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Defaults: 30 requests/minute burst, 0.5 requests/second sustained.
     """
 
-    def __init__(self, app, rate: float = 0.5, burst: int = 30) -> None:
+    def __init__(self, app, rate: float = 0.5, burst: int = 30, max_ips: int = 10000) -> None:
         super().__init__(app)
         self.rate = rate
         self.burst = burst
-        self._buckets: dict[str, _TokenBucket] = defaultdict(
-            lambda: _TokenBucket(self.rate, self.burst)
-        )
+        self.max_ips = max_ips
+        self._buckets: dict[str, _TokenBucket] = {}
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Skip rate limiting for health checks
@@ -110,6 +112,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         client_ip = request.client.host if request.client else 'unknown'
+        
+        if client_ip not in self._buckets:
+            if len(self._buckets) >= self.max_ips:
+                # FIFO eviction to prevent memory leak
+                self._buckets.pop(next(iter(self._buckets)))
+            self._buckets[client_ip] = _TokenBucket(self.rate, self.burst)
+            
         bucket = self._buckets[client_ip]
         if not bucket.consume():
             return JSONResponse(

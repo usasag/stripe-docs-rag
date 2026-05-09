@@ -11,7 +11,6 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from app.ingestion.crawler import CrawledPage
 
 
 class IngestJobStore:

@@ -5,14 +5,13 @@ All use :class:`ConnectionFactory` to vend a `sqlmodel.Session`.
 """
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, Session, SQLModel, col, select
+from sqlmodel import Field, SQLModel, col, select
 
 from app.db.connection import ConnectionFactory
 
@@ -88,6 +87,18 @@ class DbEvalResult(SQLModel, table=True):
     metric_value: Optional[float] = None
     result_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     created_at: Optional[datetime] = None
+
+
+class DbIngestJob(SQLModel, table=True):
+    __tablename__ = "ingest_jobs"
+    id: str = Field(primary_key=True)
+    scope: str
+    status: str
+    pages_fetched: int = Field(default=0)
+    pages_failed: int = Field(default=0)
+    errors: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSONB))
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------
@@ -407,33 +418,47 @@ class EvalResultRepository:
 # ---------------------------------------------------------------------------
 
 class IngestJobRepository:
-    """Ingest job tracking.
-
-    Note: 001_init.sql does not include an ``ingest_jobs`` table yet.
-    This repository uses an in-process dict today but exposes the same
-    interface that a future DB-backed version will implement.
-
-    TODO(wave-4): Add 002_ingest_jobs.sql migration and switch to real SQL.
-    """
+    """Ingest job tracking."""
 
     def __init__(self, cf: ConnectionFactory) -> None:
         self.cf = cf
-        self._jobs: dict[str, dict[str, Any]] = {}
 
     def insert_job(self, job_id: str, scope: str, status: str, stats: dict[str, Any]) -> None:
-        self._jobs[job_id] = {
-            'job_id': job_id,
-            'scope': scope,
-            'status': status,
-            **stats,
-        }
+        with self.cf.get_session() as session:
+            job = DbIngestJob(
+                id=job_id,
+                scope=scope,
+                status=status,
+                pages_fetched=stats.get('pages_fetched', 0),
+                pages_failed=stats.get('pages_failed', 0),
+                errors=stats.get('errors', []),
+            )
+            session.add(job)
+            session.commit()
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
-        return self._jobs.get(job_id)
+        with self.cf.get_session() as session:
+            job = session.get(DbIngestJob, job_id)
+            if not job:
+                return None
+            return {
+                'job_id': job.id,
+                'scope': job.scope,
+                'status': job.status,
+                'pages_fetched': job.pages_fetched,
+                'pages_failed': job.pages_failed,
+                'errors': job.errors,
+            }
 
     def update_status(self, job_id: str, status: str, stats: dict[str, Any] | None = None) -> None:
-        job = self._jobs.get(job_id)
-        if job:
-            job['status'] = status
-            if stats:
-                job.update(stats)
+        with self.cf.get_session() as session:
+            job = session.get(DbIngestJob, job_id)
+            if job:
+                job.status = status
+                if stats:
+                    job.pages_fetched = stats.get('pages_fetched', job.pages_fetched)
+                    job.pages_failed = stats.get('pages_failed', job.pages_failed)
+                    job.errors = stats.get('errors', job.errors)
+                job.updated_at = datetime.utcnow()
+                session.add(job)
+                session.commit()

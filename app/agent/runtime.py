@@ -37,7 +37,7 @@ class AgentRuntime:
     def chat(self, *, message: str, session_id: str | None, top_k: int = 8, max_citations: int = 3) -> dict[str, object]:
         started = time.time()
         sid = self.session_manager.ensure_session(session_id)
-        user_msg = self.session_manager.add_message(sid, role='user', content=message)
+        self.session_manager.add_message(sid, role='user', content=message)
 
         traces: list[dict[str, object]] = []
 
