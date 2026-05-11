@@ -1,8 +1,14 @@
-# Stripe Docs RAG
+# Stripe Docs RAG (MCP Server)
 
-Initial scaffold for Stripe docs RAG agent.
+This project is a production-ready **Model Context Protocol (MCP) Server** designed to ground AI models (like Claude) in the official Stripe documentation. It provides Claude with direct access to a highly optimized, noise-free vector database containing the official Stripe API reference and implementation guides.
 
-## Run
+### Features
+- **Native MCP Integration**: Designed specifically as an "Option C" MCP Server, allowing Claude Desktop to use it as a powerful semantic search engine while retaining full synthesis and reasoning capabilities.
+- **Noise-Free HTML Extraction**: Features a highly tuned HTML parser that aggressively isolates `<article>` content, ensuring that navigational sidebars, footers, and raw JSON payloads never pollute the context window.
+- **Automated Ingestion Pipeline**: Includes a native Python asynchronous web crawler (`scripts/ingest_all.py`) and chunking/embedding engine (`sentence-transformers`) that accurately maps, chunks, and stores documentation into a Supabase Postgres/pgvector database.
+- **FastMCP Protocol**: Built entirely in Python using the modern `fastmcp` library via `stdio` transport for lightweight, local-first integration.
+
+## Setup and Usage
 ## Claude Desktop (MCP Server) Setup - Option C
 
 To chat with the Stripe Docs agent natively inside **Claude Desktop**, you can connect it via our Model Context Protocol (MCP) Server.
