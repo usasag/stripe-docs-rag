@@ -26,8 +26,8 @@ class DbSession(SQLModel, table=True):
     external_session_id: Optional[str] = None
     user_label: Optional[str] = None
     status: str = Field(default="active")
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbMessage(SQLModel, table=True):
@@ -40,7 +40,7 @@ class DbMessage(SQLModel, table=True):
     model_name: Optional[str] = None
     # We use meta_data to avoid collision with SQLModel's internal metadata attribute
     meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column("metadata", JSONB))
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbToolTrace(SQLModel, table=True):
@@ -53,7 +53,7 @@ class DbToolTrace(SQLModel, table=True):
     tool_output: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     latency_ms: Optional[int] = None
     success: bool = Field(default=True)
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbRetrievalEvent(SQLModel, table=True):
@@ -65,7 +65,7 @@ class DbRetrievalEvent(SQLModel, table=True):
     top_k_initial: List[Any] = Field(default_factory=list, sa_column=Column(JSONB))
     top_k_reranked: List[Any] = Field(default_factory=list, sa_column=Column(JSONB))
     retrieval_score_summary: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbEvalRun(SQLModel, table=True):
@@ -75,7 +75,7 @@ class DbEvalRun(SQLModel, table=True):
     commit_sha: Optional[str] = None
     config: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     summary: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbEvalResult(SQLModel, table=True):
@@ -86,7 +86,7 @@ class DbEvalResult(SQLModel, table=True):
     metric_name: str
     metric_value: Optional[float] = None
     result_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-    created_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 class DbIngestJob(SQLModel, table=True):
@@ -97,8 +97,8 @@ class DbIngestJob(SQLModel, table=True):
     pages_fetched: int = Field(default=0)
     pages_failed: int = Field(default=0)
     errors: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSONB))
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 
 # ---------------------------------------------------------------------------
