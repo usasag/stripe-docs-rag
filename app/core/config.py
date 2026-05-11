@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     crawler_max_pages: int = 100
     crawler_delay_ms: int = 500
 
+    # LLM Settings
+    # maybe change models later
+    llm_judge_model: str = "github/gpt-4o"
+    llm_api_key: str | None = None # using LiteLLM
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

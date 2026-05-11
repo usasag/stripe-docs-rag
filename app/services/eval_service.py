@@ -28,13 +28,19 @@ class EvalService:
     def _persist_run(self, payload: dict[str, object]) -> None:
         if self.eval_run_repo is not None:
             try:
-                self.eval_run_repo.insert_run(
-                    run_id=str(payload.get('eval_run_id', '')),
-                    suite_name=str(payload.get('suite_name', '')),
-                    summary=payload.get('summary', {}),
-                )
+                # If it already exists, this might fail, so we should do an upsert or check
+                existing = self.eval_run_repo.get_run(str(payload.get('eval_run_id', '')))
+                if not existing:
+                    self.eval_run_repo.insert_run(
+                        run_id=str(payload.get('eval_run_id', '')),
+                        suite_name=str(payload.get('suite_name', '')),
+                        summary=payload.get('summary', {}),
+                    )
+                else:
+                    # Update summary if the repo supports it, for now we just try insert
+                    pass
             except Exception:
-                pass  # Non-blocking
+                pass
 
         if self.eval_result_repo is not None and payload.get('results'):
             try:
@@ -42,8 +48,8 @@ class EvalService:
                 for r in payload.get('results', []):
                     results_for_db.append({
                         'example_id': str(r.get('question', '')),
-                        'metric_name': 'citation_presence',
-                        'metric_value': 1.0 if r.get('has_citation') else 0.0,
+                        'metric_name': 'faithfulness',
+                        'metric_value': r.get('llm_scores', {}).get('faithfulness', 0),
                         'result_payload': r,
                     })
                 self.eval_result_repo.insert_results(
@@ -51,17 +57,37 @@ class EvalService:
                     results_for_db,
                 )
             except Exception:
-                pass  # Non-blocking
+                pass
 
         self._legacy_store.latest = payload
 
-    def run(self, suite_name: str) -> dict[str, object]:
+    def start_eval_run(self, suite_name: str, background_tasks: Any) -> str:
+        """Kicks off an async eval run and returns the run_id."""
+        run_id = str(uuid.uuid4())
+        
+        # Initialize the run in the DB immediately with 'running' status
+        initial_payload = {
+            'eval_run_id': run_id,
+            'suite_name': suite_name,
+            'summary': {'status': 'running'},
+            'results': []
+        }
+        self._persist_run(initial_payload)
+        
+        # Schedule the background task
+        background_tasks.add_task(self._run_evals_async, run_id, suite_name)
+        return run_id
+
+    async def _run_evals_async(self, run_id: str, suite_name: str) -> None:
+        import asyncio
         from app.services.eval_dataset import load_dataset, DEFAULT_DATASET_PATH
+        from app.evals.llm_judge import LiteLLMJudge
+        
+        judge = LiteLLMJudge()
         
         try:
             examples = load_dataset(DEFAULT_DATASET_PATH)
         except Exception:
-            # Fallback if dataset file doesn't exist
             from app.services.eval_dataset import EvalExample
             examples = [
                 EvalExample(
@@ -77,10 +103,17 @@ class EvalService:
         citation_hits = 0
         sum_mrr = 0.0
         sum_recall = 0.0
+        
+        # LLM Metric sums
+        sum_faithfulness = 0
+        sum_relevance = 0
+        sum_accuracy = 0
+        sum_citation_precision = 0
 
         for ex in examples:
             out = self.chat_service.chat(message=ex.question, session_id=None, top_k=5, max_citations=3)
             
+            answer = str(out.get('answer', ''))
             citations = out.get('citations', [])
             retrieval_event = out.get('retrieval_event', {})
             top_k_reranked = retrieval_event.get('top_k_reranked', [])
@@ -97,15 +130,6 @@ class EvalService:
 
             # Calculate MRR and Recall@k for retrieval
             gold_urls = set(u.rstrip('/') for u in ex.gold_source_urls)
-            retrieved_urls = []
-            
-            # Extract URLs from citations or retrieval_event
-            for chunk in top_k_reranked:
-                # We need URLs, but chunk might just have chunk_id depending on how it's serialized.
-                # In our runtime, we didn't serialize URL in top_k_reranked. We only serialized chunk_id.
-                pass
-                
-            # Actually, to get URLs we can just look at citations, which have URLs.
             retrieved_urls = [c.get('url', '').rstrip('/') for c in citations]
             
             mrr = 0.0
@@ -122,34 +146,57 @@ class EvalService:
 
             sum_mrr += mrr
             sum_recall += recall
+            
+            # Formulate context for the LLM Judge
+            context_texts = [f"URL: {c.get('url')}\nContent: {c.get('content', '')}" for c in citations]
+            context_block = "\n\n".join(context_texts)
+            
+            # Call LLM Judge
+            # We use an asyncio wrapper or run it in threadpool since litellm can be sync
+            llm_scores = await asyncio.to_thread(
+                judge.evaluate,
+                question=ex.question,
+                answer=answer,
+                context=context_block,
+                expected_points=ex.expected_answer_points
+            )
+            
+            sum_faithfulness += llm_scores.get('faithfulness', 0)
+            sum_relevance += llm_scores.get('relevance', 0)
+            sum_accuracy += llm_scores.get('accuracy', 0)
+            sum_citation_precision += llm_scores.get('citation_precision', 0)
 
             results.append({
                 'question': ex.question,
                 'has_citation': has_citation,
                 'mrr': mrr,
                 'recall': recall,
+                'llm_scores': llm_scores
             })
 
         example_count = len(examples)
         summary = {
+            'status': 'completed',
             'citation_presence': citation_hits / example_count if example_count > 0 else 0.0,
             'mrr': sum_mrr / example_count if example_count > 0 else 0.0,
             'recall': sum_recall / example_count if example_count > 0 else 0.0,
+            'avg_faithfulness': sum_faithfulness / example_count if example_count > 0 else 0.0,
+            'avg_relevance': sum_relevance / example_count if example_count > 0 else 0.0,
+            'avg_accuracy': sum_accuracy / example_count if example_count > 0 else 0.0,
+            'avg_citation_precision': sum_citation_precision / example_count if example_count > 0 else 0.0,
             'pass': (citation_hits / example_count) >= 0.5 if example_count > 0 else False,
             'example_count': example_count,
         }
 
         payload = {
-            'eval_run_id': str(uuid.uuid4()),
+            'eval_run_id': run_id,
             'suite_name': suite_name,
             'summary': summary,
             'results': results,
         }
         self._persist_run(payload)
-        return payload
 
     def latest(self) -> dict[str, object]:
-        # Try DB first
         if self.eval_run_repo is not None:
             try:
                 db_latest = self.eval_run_repo.get_latest()
@@ -168,6 +215,6 @@ class EvalService:
         return {
             'eval_run_id': None,
             'suite_name': None,
-            'summary': {'citation_presence': 0.0, 'pass': False, 'example_count': 0},
+            'summary': {'status': 'none'},
             'results': [],
         }

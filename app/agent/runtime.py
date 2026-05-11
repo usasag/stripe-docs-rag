@@ -57,11 +57,12 @@ class AgentRuntime:
         })
 
         t1 = time.time()
-        rank_in = {'query': search_out['query_used'], 'candidates': search_out['results']}
+        candidate_ids = [r['chunk_id'] for r in search_out.get('results', [])]
+        rank_in = {'query': search_out['query_used'], 'candidate_chunk_ids': candidate_ids}
         rank_out = rank_tool.run(rank_in)
         traces.append({
             'tool_name': 'source_ranker',
-            'tool_input': {'query': rank_in['query'], 'candidate_count': len(rank_in['candidates'])},
+            'tool_input': {'query': rank_in['query'], 'candidate_count': len(rank_in['candidate_chunk_ids'])},
             'tool_output': {'result_count': len(rank_out.get('ranked_results', []))},
             'latency_ms': int((time.time() - t1) * 1000),
             'success': True,

@@ -66,12 +66,18 @@ class IngestOrchestrator:
         if scope == 'payments':
             seeds = ['https://docs.stripe.com/payments']
         else:
-            seeds = ['https://docs.stripe.com']
+            seeds = [
+                'https://docs.stripe.com/payments',
+                'https://docs.stripe.com/billing',
+                'https://docs.stripe.com/webhooks',
+                'https://docs.stripe.com/api',
+                'https://docs.stripe.com/testing'
+            ]
 
         config = CrawlConfig(
             seeds=seeds,
-            allowed_domains=['docs.stripe.com'],
-            allowed_paths=['/payments', '/billing', '/webhooks', '/api', '/testing'],
+            allowed_domains={'docs.stripe.com'},
+            allowed_path_prefixes=('/payments', '/billing', '/webhooks', '/api', '/testing'),
         )
 
         pages, stats = crawl_stripe_docs_sync(

@@ -61,7 +61,7 @@ class PostgresIndexer:
             id, document_id, chunk_index, section_path, anchor, content, token_count, embedding, metadata
         )
         values (%s::uuid, %s::uuid, %s, %s, %s, %s, %s, %s::vector(384), %s::jsonb)
-        on conflict (id) do update set
+        on conflict (document_id, chunk_index) do update set
             content = excluded.content,
             token_count = excluded.token_count,
             embedding = excluded.embedding,

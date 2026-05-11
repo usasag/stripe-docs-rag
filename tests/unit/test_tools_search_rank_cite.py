@@ -42,30 +42,31 @@ def test_search_tool_returns_structured_results() -> None:
 
 def test_source_ranker_reranks_candidates() -> None:
     candidates = [
-        {
-            "chunk_id": "c1",
-            "document_id": "d1",
-            "title": "Accept a payment",
-            "url": "https://docs.stripe.com/payments/accept-a-payment",
-            "anchor": "confirm",
-            "content": "Confirm the PaymentIntent to finalize payment.",
-            "score": 0.7,
-            "metadata": {"product_area": "payments"},
-        },
-        {
-            "chunk_id": "c2",
-            "document_id": "d2",
-            "title": "General docs",
-            "url": "https://docs.stripe.com/docs",
-            "anchor": None,
-            "content": "General information.",
-            "score": 0.8,
-            "metadata": {"product_area": "general"},
-        },
+        RetrievedChunk(
+            chunk_id="c1",
+            document_id="d1",
+            title="Accept a payment",
+            url="https://docs.stripe.com/payments/accept-a-payment",
+            anchor="confirm",
+            content="Confirm the PaymentIntent to finalize payment.",
+            score=0.7,
+            metadata={"product_area": "payments"},
+        ),
+        RetrievedChunk(
+            chunk_id="c2",
+            document_id="d2",
+            title="General docs",
+            url="https://docs.stripe.com/docs",
+            anchor=None,
+            content="General information.",
+            score=0.8,
+            metadata={"product_area": "general"},
+        ),
     ]
-    tool = SourceRankerTool()
+    cache = {c.chunk_id: c for c in candidates}
+    tool = SourceRankerTool(chunk_cache=cache)
 
-    out = tool.run({"query": "confirm paymentintent", "candidates": candidates})
+    out = tool.run({"query": "confirm paymentintent", "candidate_chunk_ids": ["c1", "c2"]})
 
     assert out["ranked_results"][0]["chunk_id"] == "c1"
     assert out["ranked_results"][0]["rerank_score"] >= out["ranked_results"][1]["rerank_score"]

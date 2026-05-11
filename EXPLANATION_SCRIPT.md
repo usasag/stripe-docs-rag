@@ -11,8 +11,8 @@ This project is a production-shaped RAG assistant over Stripe documentation.
 At a high level, it does four things end to end:
 1. Ingest docs content into a vector-ready store model.
 2. Retrieve relevant chunks for a user question.
-3. Use a managed-agent style tool pipeline to produce grounded answers with citations.
-4. Expose everything through a clean FastAPI API with test coverage and observability.
+3. Use a managed-agent style tool pipeline with strict Pydantic schemas compatible with Anthropic Tool Use.
+4. Expose everything directly to Claude Desktop via a Model Context Protocol (MCP) server, completely eliminating the need for a custom UI.
 
 The architecture is intentionally modular so each layer can be improved independently without rewriting the whole app.
 
@@ -22,8 +22,8 @@ The architecture is intentionally modular so each layer can be improved independ
 
 I’d describe it as six layers:
 
-1. API layer (`app/api/*`)  
-   Thin routes, typed request/response schemas, dependency wiring.
+1. MCP Server Layer (`app/mcp_server.py`)  
+   Exposes the `search_stripe_docs` tool natively to Claude Desktop via the standard `stdio` transport.
 
 2. Service layer (`app/services/*`)  
    Orchestration use cases (chat, search, ingest, eval, sessions).
@@ -48,15 +48,16 @@ This separation is intentional: it demonstrates design quality and makes each pa
 
 The answer pipeline is fixed and auditable, not “magic”.
 
-Tools:
 - `search_tool` (`app/tools/search_tool.py`)  
   Normalizes/re-writes query and retrieves candidates.
 
 - `source_ranker` (`app/tools/source_ranker.py`)  
-  Re-ranks candidates and prioritizes direct evidence.
+  Re-ranks candidates and prioritizes direct evidence using ID-based references to save context window tokens.
 
 - `citation_sourcer` (`app/tools/citation_sourcer.py`)  
   Converts ranked chunks into citation objects.
+
+All tools implement strict Pydantic `InputModels` to guarantee native compatibility with the Anthropic Model Context Protocol (MCP).
 
 Agent runtime (`app/agent/runtime.py`) always runs this order:
 1. search
@@ -130,17 +131,12 @@ Why it’s designed this way:
 The schema includes:
 - `documents`
 - `document_chunks`
-- `sessions`
-- `messages`
-- `tool_traces`
-- `retrieval_events`
-- `eval_runs`
-- `eval_results`
+- `sessions`, `messages`, `tool_traces`, `retrieval_events`, `eval_runs`, `eval_results`
 
 And a pgvector search function:
-- `match_document_chunks(query_embedding, match_count, filters)`
+- `match_document_chunks_hybrid(query_embedding, match_count, filters)`
 
-This gives a direct path from prototype to production without changing conceptual boundaries.
+**Security Note:** I specifically provisioned a `readonly_recruiter` database user. This role is strictly limited to `SELECT` queries on the chunks table, allowing anyone reviewing the code to test the MCP server locally without exposing the master database password!
 
 ---
 
@@ -188,18 +184,20 @@ We recently executed a 5-wave productionization plan to graduate this project fr
 ### C) Real Ingestion
 8. **Async Crawler**: Replaced the hardcoded demo HTML with a polite, asynchronous HTTP crawler (`httpx`) featuring BFS traversal, rate limiting, and domain-allowlist enforcement.
 
-### D) Evaluation Framework
+### D) Evaluation Framework & Resilient Judges
 9. **Curated Dataset**: Scaffolded a 15-question golden QA dataset covering factual lookups, conceptual topics, multi-source requirements, and disambiguation.
-10. **Metrics-Driven**: Built an eval runner that computes retrieval quality metrics (Recall@k, MRR) against the golden source URLs.
+10. **LLM-as-a-Judge**: Built `LiteLLMJudge` to automatically score agent answers. Configured robust fallback routing (cascading from `gpt-4o` to `llama3` to `mistral` via `litellm`) so evals never crash if an API provider goes down.
 
-### E) API Hardening & Security
-11. **Authentication**: Added Supabase JWT verification (`SUPABASE_ANON_KEY`) for secure endpoint access.
-12. **Middleware Stack**: Added `RequestIdMiddleware`, a token-bucket `RateLimitMiddleware`, and an `ErrorHandlerMiddleware` mapping domain exceptions (e.g., `RateLimitError`) to standard HTTP responses.
+### E) MCP Integration (Option C)
+11. **Model Context Protocol**: Fully pivoted to an MCP Server (`app/mcp_server.py`) so non-technical users can interact with the Stripe documentation natively through Claude Desktop without needing a custom-built UI.
 
-### What's Left for the Future?
-- **LLM-Backed Query Rewrites**: Replacing the heuristic query rewriter with an LLM call for complex multi-turn disambiguation.
-- **Judge Models**: Using an LLM-as-a-judge to evaluate faithfulness and citation accuracy in the eval pipeline.
-
+### What I would do with more time
+If I had more time and resources to take this MCP server to a massive production scale, I would focus on:
+- **Managed Markdown Crawling (Firecrawl)**: I built a custom async crawler to demonstrate engineering fundamentals, but for true production, I would offload ingestion to a managed service like Firecrawl. It perfectly handles client-side JS rendering and outputs pristine Markdown, preserving Stripe's critical code blocks which dramatically improves embedding accuracy.
+- **Remote SSE Deployment**: Currently, the server runs via standard I/O locally. I would deploy the FastMCP server to a cloud provider using Server-Sent Events (SSE), allowing any user to connect their Claude Desktop without needing Python installed locally.
+- **Continuous Syncing**: Instead of manual crawling, I would set up cron jobs or listen to Stripe's documentation RSS feeds to automatically upsert new pages and retire deprecated API chunks, ensuring the knowledge base is never stale.
+- **Read/Write Agentic Actions**: I would expand the MCP server beyond just documentation retrieval. By allowing users to provide their Stripe Test Mode API Key, the agent could proactively fetch their recent API logs and webhook failures to debug their specific integration issues in real-time.
+- **GraphRAG Overlay**: I would build a Knowledge Graph alongside the vector database to explicitly map relationships between complex Stripe entities (e.g., how a `PaymentIntent` relates to a `SetupIntent` or `Customer`), improving retrieval for complex multi-step integration questions.
 ---
 
 ## 11) Final recruiter summary
