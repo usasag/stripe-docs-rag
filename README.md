@@ -71,7 +71,7 @@ The server starts at `http://localhost:8000`. Database migrations run automatica
 ### Example: Ask a Question
 
 ```bash
-curl -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d "{\"message\": \"How do I confirm a PaymentIntent?\"}"
+curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" -d '{"message": "How do I confirm a PaymentIntent?"}'
 ```
 
 Response includes a synthesized answer, source citations with URLs, and a trace ID for debugging.
@@ -81,7 +81,7 @@ Response includes a synthesized answer, source citations with URLs, and a trace 
 The project includes 15 golden Q&A pairs covering payments, billing, webhooks, testing, and Connect. Run the evaluation suite via:
 
 ```bash
-curl -X POST http://localhost:8000/evals/run -H "Content-Type: application/json" -d "{\"suite_name\": \"smoke\"}"
+curl.exe -X POST http://localhost:8000/evals/run -H "Content-Type: application/json" -d '{"suite_name": "smoke"}'
 ```
 
 Metrics tracked:
