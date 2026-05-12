@@ -75,7 +75,7 @@ The script performs a deep crawl of the live Stripe documentation and upserts se
       "args": ["app/mcp_server.py"],
       "cwd": "YOUR_ABSOLUTE_PATH_TO_PROJECT",
       "env": {
-        "SUPABASE_DB_URL": "postgresql://postgres.rmdfvtrdlcvrupukwogu:MasterRAG2026!@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
+        "SUPABASE_DB_URL": "postgresql://readonly_recruiter:temp_30_day_token_123@db.hxmpdytlsejvbkasrhlb.supabase.co:5432/postgres",
         "PYTHONPATH": "YOUR_ABSOLUTE_PATH_TO_PROJECT"
       }
     }
