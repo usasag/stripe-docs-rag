@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     )
     supabase_service_role_key: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY_MASTER", "SUPABASE_SERVICE_ROLE_KEY"),
+        validation_alias=AliasChoices(
+            "SUPABASE_SERVICE_ROLE_KEY_MASTER", "SUPABASE_SERVICE_ROLE_KEY"
+        ),
     )
     supabase_db_url: str | None = Field(
         default=None,
@@ -33,10 +35,11 @@ class Settings(BaseSettings):
     crawler_delay_ms: int = 500
 
     # LLM synthesis
-    llm_provider: str = "github"  # github | anthropic
+    llm_provider: str = "github"  # github | anthropic | huggingface
     llm_model: str = "gpt-4o-mini"
     litellm_api_key: str | None = None  # GitHub Models API key
     anthropic_api_key: str | None = None
+    hf_api_key: str | None = None  # HuggingFace Inference API key
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -15,31 +15,31 @@ import httpx
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_PATH = ROOT / '.env'
+ENV_PATH = ROOT / ".env"
 
 
 def _parse_env(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     if not path.exists():
         return out
-    for line in path.read_text(encoding='utf-8').splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         s = line.strip()
-        if not s or s.startswith('#') or '=' not in s:
+        if not s or s.startswith("#") or "=" not in s:
             continue
-        k, v = s.split('=', 1)
+        k, v = s.split("=", 1)
         out[k.strip()] = v.strip()
     return out
 
 
 def _write_env(path: Path, updates: dict[str, str]) -> None:
-    lines = path.read_text(encoding='utf-8').splitlines() if path.exists() else []
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
     keys = set(updates.keys())
     seen: set[str] = set()
     out_lines: list[str] = []
 
     for line in lines:
-        if '=' in line and not line.strip().startswith('#'):
-            k = line.split('=', 1)[0].strip()
+        if "=" in line and not line.strip().startswith("#"):
+            k = line.split("=", 1)[0].strip()
             if k in updates:
                 out_lines.append(f"{k}={updates[k]}")
                 seen.add(k)
@@ -49,70 +49,96 @@ def _write_env(path: Path, updates: dict[str, str]) -> None:
     for k in keys - seen:
         out_lines.append(f"{k}={updates[k]}")
 
-    path.write_text('\n'.join(out_lines).rstrip() + '\n', encoding='utf-8')
+    path.write_text("\n".join(out_lines).rstrip() + "\n", encoding="utf-8")
 
 
 def _validate_github(key: str, model: str) -> tuple[bool, str]:
     try:
         resp = httpx.post(
-            'https://models.inference.ai.azure.com/chat/completions',
-            headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+            "https://models.inference.ai.azure.com/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={
-                'model': model,
-                'messages': [{'role': 'user', 'content': 'ping'}],
-                'max_tokens': 5,
-                'temperature': 0.0,
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 5,
+                "temperature": 0.0,
             },
             timeout=15.0,
         )
         if resp.status_code >= 400:
-            return False, f'GitHub validation failed: HTTP {resp.status_code} {resp.text[:200]}'
-        return True, 'GitHub key validated.'
+            return False, f"GitHub validation failed: HTTP {resp.status_code} {resp.text[:200]}"
+        return True, "GitHub key validated."
     except Exception as e:
-        return False, f'GitHub validation error: {e}'
+        return False, f"GitHub validation error: {e}"
 
 
 def _validate_anthropic(key: str, model: str) -> tuple[bool, str]:
     try:
         resp = httpx.post(
-            'https://api.anthropic.com/v1/messages',
+            "https://api.anthropic.com/v1/messages",
             headers={
-                'x-api-key': key,
-                'anthropic-version': '2023-06-01',
-                'Content-Type': 'application/json',
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
             },
             json={
-                'model': model,
-                'max_tokens': 5,
-                'messages': [{'role': 'user', 'content': 'ping'}],
+                "model": model,
+                "max_tokens": 5,
+                "messages": [{"role": "user", "content": "ping"}],
             },
             timeout=15.0,
         )
         if resp.status_code >= 400:
-            return False, f'Anthropic validation failed: HTTP {resp.status_code} {resp.text[:200]}'
-        return True, 'Anthropic key validated.'
+            return False, f"Anthropic validation failed: HTTP {resp.status_code} {resp.text[:200]}"
+        return True, "Anthropic key validated."
     except Exception as e:
-        return False, f'Anthropic validation error: {e}'
+        return False, f"Anthropic validation error: {e}"
+
+
+def _validate_huggingface(key: str, model: str) -> tuple[bool, str]:
+    try:
+        resp = httpx.post(
+            "https://router.huggingface.co/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": "ping"}],
+                "max_tokens": 5,
+            },
+            timeout=30.0,
+        )
+        if resp.status_code >= 400:
+            return (
+                False,
+                f"HuggingFace validation failed: HTTP {resp.status_code} {resp.text[:200]}",
+            )
+        return True, "HuggingFace key validated."
+    except Exception as e:
+        return False, f"HuggingFace validation error: {e}"
 
 
 def main() -> int:
     env = _parse_env(ENV_PATH)
 
-    has_github = bool(env.get('LITELLM_API_KEY', '').strip())
-    has_anthropic = bool(env.get('ANTHROPIC_API_KEY', '').strip())
-    if has_github or has_anthropic:
-        print('API keys set successfully')
+    has_github = bool(env.get("LITELLM_API_KEY", "").strip())
+    has_anthropic = bool(env.get("ANTHROPIC_API_KEY", "").strip())
+    has_huggingface = bool(env.get("HF_API_KEY", "").strip())
+    if has_github or has_anthropic or has_huggingface:
+        print("API keys set successfully")
         return 0
 
-    provider = input('Choose LLM provider (github/anthropic): ').strip().lower()
-    if provider not in {'github', 'anthropic'}:
-        print('Invalid provider. Choose github or anthropic.')
+    provider = input("Choose LLM provider (github/anthropic/huggingface): ").strip().lower()
+    if provider not in {"github", "anthropic", "huggingface"}:
+        print("Invalid provider. Choose github, anthropic, or huggingface.")
         return 1
 
-    if provider == 'github':
-        model = 'gpt-4o-mini'
-        print(f'Using fixed model for GitHub provider: {model}')
-        key = input('Enter GitHub API key: ').strip()
+    if provider == "github":
+        model = "gpt-4o-mini"
+        print(f"Using fixed model for GitHub provider: {model}")
+        key = input("Enter GitHub API key: ").strip()
         ok, msg = _validate_github(key, model)
         print(msg)
         if not ok:
@@ -120,15 +146,15 @@ def main() -> int:
         _write_env(
             ENV_PATH,
             {
-                'LLM_PROVIDER': 'github',
-                'LLM_MODEL': model,
-                'LITELLM_API_KEY': key,
+                "LLM_PROVIDER": "github",
+                "LLM_MODEL": model,
+                "LITELLM_API_KEY": key,
             },
         )
-    else:
-        model = 'claude-sonnet-4-5-20250929'
-        print(f'Using fixed model for Anthropic provider: {model}')
-        key = input('Enter Anthropic API key: ').strip()
+    elif provider == "anthropic":
+        model = "claude-sonnet-4-5-20250929"
+        print(f"Using fixed model for Anthropic provider: {model}")
+        key = input("Enter Anthropic API key: ").strip()
         ok, msg = _validate_anthropic(key, model)
         print(msg)
         if not ok:
@@ -136,15 +162,72 @@ def main() -> int:
         _write_env(
             ENV_PATH,
             {
-                'LLM_PROVIDER': 'anthropic',
-                'LLM_MODEL': model,
-                'ANTHROPIC_API_KEY': key,
+                "LLM_PROVIDER": "anthropic",
+                "LLM_MODEL": model,
+                "ANTHROPIC_API_KEY": key,
+            },
+        )
+    else:
+        model_default = "microsoft/Phi-3-mini-4k-instruct"
+        model = input(f"Enter model name (default: {model_default}): ").strip() or model_default
+        key = input("Enter HuggingFace API key: ").strip()
+        ok, msg = _validate_huggingface(key, model)
+        print(msg)
+        if not ok:
+            return 1
+        _write_env(
+            ENV_PATH,
+            {
+                "LLM_PROVIDER": "huggingface",
+                "LLM_MODEL": model,
+                "HF_API_KEY": key,
             },
         )
 
-    print('API keys set successfully')
+    print("API keys set successfully")
+    return 0
+
+    provider = input("Choose LLM provider (github/anthropic): ").strip().lower()
+    if provider not in {"github", "anthropic"}:
+        print("Invalid provider. Choose github or anthropic.")
+        return 1
+
+    if provider == "github":
+        model = "gpt-4o-mini"
+        print(f"Using fixed model for GitHub provider: {model}")
+        key = input("Enter GitHub API key: ").strip()
+        ok, msg = _validate_github(key, model)
+        print(msg)
+        if not ok:
+            return 1
+        _write_env(
+            ENV_PATH,
+            {
+                "LLM_PROVIDER": "github",
+                "LLM_MODEL": model,
+                "LITELLM_API_KEY": key,
+            },
+        )
+    else:
+        model = "claude-sonnet-4-5-20250929"
+        print(f"Using fixed model for Anthropic provider: {model}")
+        key = input("Enter Anthropic API key: ").strip()
+        ok, msg = _validate_anthropic(key, model)
+        print(msg)
+        if not ok:
+            return 1
+        _write_env(
+            ENV_PATH,
+            {
+                "LLM_PROVIDER": "anthropic",
+                "LLM_MODEL": model,
+                "ANTHROPIC_API_KEY": key,
+            },
+        )
+
+    print("API keys set successfully")
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

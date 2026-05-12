@@ -1,7 +1,7 @@
 [
   {
     "question": "What is a PaymentIntent and how do I use it?",
-    "answer": "A PaymentIntent is an object that represents the process of collecting a payment from a customer. It starts with the status `requires_payment_method`, meaning Stripe needs details about the customer's payment method to proceed. You can create a PaymentIntent to accept a payment immediately or use the SetupIntents API to collect payment method details for future payments. \n\nTo use a PaymentIntent, you typically create it via the API, providing necessary details like amount and currency, and then attach a PaymentMethod to it. For more information, refer to the PaymentIntents API documentation.",
+    "answer": "**What a PaymentIntent is**\n\nA **PaymentIntent** is the core Stripe API object that represents a single payment flow.  \nWhen it is created it starts in the `requires_payment_method` status, meaning Stripe is waiting for the customer’s payment‑method details (a card number, bank‑account credentials, etc.). Those details are represented by a **PaymentMethod** object (see the “Payment Methods” excerpt).  \n\n**How to use a PaymentIntent**\n\n1. **Create the PaymentIntent**  \n   Send a request to `POST /v1/payment_intents` with at least:\n   * `amount` – the amount to charge (in the smallest currency unit)  \n   * `currency` – e.g., `usd`  \n   * (optional) `automatic_payment_methods[enabled]=true` to let Stripe automatically offer all enabled methods.  \n\n   Example (from the dynamic‑payment‑methods excerpt):\n\n   ```bash\n   curl https://api.stripe.com/v1/payment_intents \\\n     -u \"sk_test_…:\" \\\n     -d amount=1000 \\\n     -d currency=usd \\\n     -d \"automatic_payment_methods[enabled]=true\"\n   ```\n\n2. **Collect the customer’s payment details**  \n   * Use Stripe.js / the Payment Element to gather a **PaymentMethod** (card, ACH, etc.).  \n   * You can also create a PaymentMethod directly via the PaymentMethods API and attach it later.\n\n3. **Attach / provide the PaymentMethod to the PaymentIntent**  \n   * Either pass the `payment_method` ID when confirming the intent, or attach the method to the intent first.\n\n4. **Confirm the PaymentIntent**  \n   * Call `POST /v1/payment_intents/{id}/confirm` (or let Stripe.js confirm automatically).  \n   * After confirmation the status moves forward (e.g., `succeeded` if the payment is captured).\n\n5. **Optional: control which methods are allowed**  \n   * Use `excluded_payment_method_types[]` in the create request to block specific methods for that transaction (e.g., `affirm`, `acss_debit`).  \n   * Note: to block Apple Pay, Google Pay, or Link you must use the `wallets` hash instead of `excluded_payment_method_types`.\n\n6. **Future‑payment use‑case**  \n   * If you only need to save the method for later, use a **SetupIntent** instead of confirming the PaymentIntent immediately.\n\n**Summary**\n\nA PaymentIntent is the object that drives a payment from start (`requires_payment_method`) to completion. Create it with amount and currency, collect a PaymentMethod via Stripe.js or the PaymentMethods API, attach/confirm it, and optionally exclude unwanted methods using `excluded_payment_method_types`. This flow works for one‑time charges and can be combined with the Payment Element or Checkout Sessions for richer UI integrations.",
     "citations": [
       {
         "label": "Stripe Docs - Dynamic payment methods",
@@ -29,13 +29,13 @@
         "snippet": "Pergunte sobre esta página Cópia para LLM Exibir como Markdown Instalar skills Previously, each payment method (cards, iDEAL, and so on) required a separate Element. By migrating to the Payment Element, you can accept many payment methods with a single Element. You can use additional capabilities by migrating to Checkout Sessions from Payment Intents, which enables your integration to manage subscriptions, discoun..."
       }
     ],
-    "session_id": "cb175d59-7a2f-4c44-b4f9-f921832b7b61",
-    "trace_id": "7e93afd9-b8ac-473a-b22d-800f4f2c2135",
-    "latency_ms": 11083
+    "session_id": "669df2ce-79c4-4359-8684-2f79c52d9280",
+    "trace_id": "2d49b380-a810-4043-b6a7-d1798e972e01",
+    "latency_ms": 30554
   },
   {
     "question": "How do I handle webhook signature verification?",
-    "answer": "To handle webhook signature verification, you need to verify the signature using the raw body of the request and your endpoint secret. Here’s a basic outline:\n\n1. Retrieve the raw body of the request.\n2. Get the signature from the request headers.\n3. Use the `Stripe::Webhook.construct_event` method to verify the signature with the payload and your endpoint secret.\n\nHere’s a code snippet example:\n\n```ruby\nsignature = request.env['HTTP_STRIPE_SIGNATURE']\nbegin\n  event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)\nrescue Stripe::SignatureVerificationError => e\n  puts \"⚠️ Webhook signature verification failed. #{e.message}\"\n  status 400\nend\n```\n\nMake sure to replace `endpoint_secret` with your unique endpoint secret key.",
+    "answer": "**Webhook signature verification**\n\n1. **Read the raw request body** – `payload = request.body.read` (Ruby) or `req.body` (Node).  \n2. **Get the Stripe‑Signature header** – `signature = request.env['HTTP_STRIPE_SIGNATURE']` (Ruby) or `req.headers['stripe-signature']` (Node).  \n3. **Provide your endpoint secret** – `endpoint_secret = 'whsec_…'` (the secret shown in the Dashboard → Webhooks settings).  \n4. **Verify the signature and construct the full event**  \n\n   *Ruby*  \n\n   ```ruby\n   begin\n     event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)\n   rescue Stripe::SignatureVerificationError => e\n     puts \"⚠️ Webhook signature verification failed. #{e.message}\"\n     status 400\n   end\n   ```\n\n   *Node (JavaScript)*  \n\n   ```js\n   const thinNotification = stripe.webhooks.constructEvent(\n     req.body,\n     sig,\n     thinWebhookSecret   // your endpoint secret\n   );\n   // For thin‑event migration, fetch the full event after verification:\n   const event = await stripe.v2.core.events.retrieve(thinNotification.id);\n   ```\n\n5. **Handle the event** – once `event` is successfully constructed, process `event.type` (e.g., `payment_intent.succeeded`).  \n6. **Return a 200 response** when processing succeeds; return **400** if verification fails.\n\nThese steps ensure the webhook payload really came from Stripe and hasn’t been tampered with.",
     "citations": [
       {
         "label": "Stripe Docs - Receba eventos da Stripe no seu endpoint de webhook",
@@ -63,13 +63,13 @@
         "snippet": "Pergunte sobre esta página Cópia para LLM Exibir como Markdown Instalar skills Crie um formulário de pagamento ou use uma página de checkout pré-integrada para começar a aceitar pagamentos online."
       }
     ],
-    "session_id": "0f845ded-8d6d-4899-9172-a472d4d9524a",
-    "trace_id": "2e5f65c3-cbd6-452f-bf88-01b4e16381d2",
-    "latency_ms": 11252
+    "session_id": "133b483f-b74e-40f6-8f33-a94afd8f96c2",
+    "trace_id": "71118303-be6c-4a87-9d33-6a1f45dd1c0b",
+    "latency_ms": 20839
   },
   {
     "question": "What is the difference between a PaymentIntent and a SetupIntent?",
-    "answer": "The provided documentation excerpts do not contain information regarding the differences between a PaymentIntent and a SetupIntent.",
+    "answer": "I’m sorry, but the provided documentation excerpts don’t contain information about PaymentIntents or SetupIntents, so I can’t answer that question based on the given sources.",
     "citations": [
       {
         "label": "Stripe Docs - The Event object",
@@ -97,8 +97,8 @@
         "snippet": "Occurs when a reserve plan is created."
       }
     ],
-    "session_id": "0edd64ec-ee41-4dad-a6bf-74fa80ba0f89",
-    "trace_id": "1babfc49-cc24-4c9e-952c-3b8ebeab74d0",
-    "latency_ms": 9472
+    "session_id": "70e7cca5-7e43-498c-9cde-5e87b05cc8f4",
+    "trace_id": "5b6ef348-1b10-409c-a715-dd4efe3329a0",
+    "latency_ms": 10621
   }
 ]

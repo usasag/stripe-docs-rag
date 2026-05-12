@@ -1,0 +1,78 @@
+=== Question 1 ===
+Q: What is a PaymentIntent and how do I use it?
+A: **What a PaymentIntent is**
+
+A **PaymentIntent** is the core Stripe object that represents a single payment flow.  
+When it’s created it starts in the `requires_payment_method` status, meaning Stripe is waiting for the customer’s payment‑method details (a card number, ACH credentials, etc.). The payment‑method information is represented by a **PaymentMethod** object, which you either create yourself and attach to the PaymentIntent or let Stripe collect for you via the Payment Element, Checkout, or other integrations. (See Source 5.)
+
+**How to use a PaymentIntent**
+
+1. **Create the PaymentIntent** (server‑side) with the amount, currency, and any options you need, e.g.:
+
+   ```bash
+   curl https://api.stripe.com/v1/payment_intents \
+     -u sk_test_...: \
+     -d amount=1000 \
+     -d currency=usd \
+     -d "automatic_payment_methods[enabled]=true"
+   ```
+
+   *You can also restrict which methods are offered by adding `excluded_payment_method_types[]` entries (e.g., `affirm`, `acss_debit`).* (Source 3)
+
+2. **Collect the payment method** on the client.  
+   - Use Stripe.js + Payment Element (or Card Element, Checkout, etc.) to gather the customer’s card or bank details.  
+   - Stripe creates a **PaymentMethod** object for you (or you can create one yourself as shown in Source 1) and attaches it to the PaymentIntent.
+
+3. **Confirm the PaymentIntent** (client‑side or server‑side) so Stripe can attempt the charge.  
+   - If the status changes to `succeeded`, the payment is complete.  
+   - If additional actions are required (e.g., 3‑D Secure), Stripe will return a `requires_action` status that you must handle before confirming again.
+
+4. **Handle post‑payment events** (optional).  
+   - Stripe will emit events (e.g., `payment_intent.succeeded`) that you can listen for via webhooks. (Source 5 mentions the flow; Source 2/4/7 describe related event types.)
+
+**Key points**
+
+- Use PaymentIntents when you want to **accept a payment immediately**.  
+- For collecting payment details to be reused later, use **SetupIntents** instead (also mentioned in Source 5).  
+- You can control which payment methods appear per transaction with `excluded_payment_method_types` (Source 3).  
+
+That’s the basic definition and workflow for a PaymentIntent.
+
+=== Question 2 ===
+Q: How do I handle webhook signature verification?
+A: To verify a Stripe webhook signature:
+
+1. **Get the raw request body** – read the payload exactly as Stripe sent it.  
+   ```ruby
+   payload = request.body.read
+   ```
+
+2. **Read the signature header** – Stripe sends the signature in the `Stripe-Signature` header (available as `HTTP_STRIPE_SIGNATURE`).  
+   ```ruby
+   signature = request.env['HTTP_STRIPE_SIGNATURE']
+   ```
+
+3. **Use your endpoint secret** – the secret you see in the Dashboard under **Webhook settings** (e.g., `whsec_...`).  
+   ```ruby
+   endpoint_secret = 'whsec_...'
+   ```
+
+4. **Construct and verify the event** – call `Stripe::Webhook.construct_event` with the payload, signature, and secret.  
+   ```ruby
+   begin
+     event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)
+   rescue Stripe::SignatureVerificationError => e
+     puts "⚠️ Webhook signature verification failed. #{e.message}"
+     status 400
+     return
+   end
+   ```
+
+5. **Proceed only if verification succeeds** – after the `construct_event` call returns an `event` object, handle it as needed; otherwise return a 400 error.
+
+These steps (reading the raw body, extracting the `Stripe-Signature` header, and calling `Stripe::Webhook.construct_event` with your endpoint secret) ensure the webhook payload is authentic and untampered.
+
+=== Question 3 ===
+Q: What is the difference between a PaymentIntent and a SetupIntent?
+A: I’m sorry, but the provided documentation excerpts do not contain information about PaymentIntents or SetupIntents, so I can’t answer that question based on the given sources.
+

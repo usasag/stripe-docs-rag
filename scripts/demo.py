@@ -7,6 +7,7 @@ Run the server first:
 Then run this script:
     python scripts/demo.py
 """
+
 import json
 import subprocess
 import sys
@@ -41,7 +42,8 @@ def ensure_llm_config() -> None:
     env = _parse_env(ROOT / ".env")
     has_github = bool(env.get("LITELLM_API_KEY", "").strip())
     has_anthropic = bool(env.get("ANTHROPIC_API_KEY", "").strip())
-    if has_github or has_anthropic:
+    has_huggingface = bool(env.get("HF_API_KEY", "").strip())
+    if has_github or has_anthropic or has_huggingface:
         print("API keys set successfully")
         return
 
@@ -93,7 +95,7 @@ def main():
         print(f"\n[OK] Server is healthy: {health.json()}\n")
     except Exception as e:
         print(f"\n[ERROR] Could not reach server at {BASE_URL}")
-        print(f"    Make sure uvicorn is running: uvicorn app.main:app --reload")
+        print("    Make sure uvicorn is running: uvicorn app.main:app --reload")
         print(f"    Error: {e}")
         sys.exit(1)
 
@@ -111,7 +113,9 @@ def main():
             data = ask(question)
             result = format_response(question, data)
             results.append(result)
-            print(f"         -> {len(result['citations'])} citation(s) | {result['latency_ms']}ms\n")
+            print(
+                f"         -> {len(result['citations'])} citation(s) | {result['latency_ms']}ms\n"
+            )
         except Exception as e:
             print(f"         [FAILED] {e}\n")
             results.append({"question": question, "error": str(e)})
@@ -124,6 +128,9 @@ def main():
     print(f"[DONE] Full results written to: {output_path}")
     print("=" * 70)
     print()
+    import io
+
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")  # type: ignore[assignment]
     print(json.dumps(results[0], indent=2, ensure_ascii=False))
 
 
