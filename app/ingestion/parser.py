@@ -30,6 +30,8 @@ _HEADING_OR_P_RE = re.compile(
 _ID_RE = re.compile(r"id=['\"]([^'\"]+)['\"]", re.IGNORECASE)
 _TAG_RE = re.compile(r'<[^>]+>')
 _WS_RE = re.compile(r'\s+')
+_NOISE_RE = re.compile(r'<(script|style|noscript|nav|header|footer|aside)[^>]*>.*?</\1>', re.IGNORECASE | re.DOTALL)
+_ARTICLE_RE = re.compile(r'<article[^>]*>(.*?)</article>', re.IGNORECASE | re.DOTALL)
 
 
 def _clean_text(text: str) -> str:
@@ -38,6 +40,17 @@ def _clean_text(text: str) -> str:
 
 
 def parse_html_document(url: str, html: str) -> ParsedDocument:
+    # Extract only the article content, dropping the massive global sidebar
+    article_match = _ARTICLE_RE.search(html)
+    if article_match:
+        html = article_match.group(1)
+
+    # Remove script/style/nav/footer noise from the article content
+    prev = ""
+    while html != prev:
+        prev = html
+        html = _NOISE_RE.sub('', html)
+
     title_match = _TITLE_RE.search(html)
     h1_match = _H1_RE.search(html)
 
