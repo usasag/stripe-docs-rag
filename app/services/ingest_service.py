@@ -40,9 +40,11 @@ class IngestOrchestrator:
                 scope=str(record.get('scope', '')),
                 status=str(record.get('status', 'completed')),
                 stats={
-                    'pages_seen': record.get('pages_seen', 0),
-                    'documents_upserted': record.get('documents_upserted', 0),
-                    'chunks_upserted': record.get('chunks_upserted', 0),
+                    # Repository currently persists ingest counters under pages_fetched/pages_failed/errors.
+                    # Keep this mapping until ingest_jobs schema is expanded.
+                    'pages_fetched': record.get('pages_seen', 0),
+                    'pages_failed': 0,
+                    'errors': [],
                 },
             )
         else:
@@ -50,7 +52,17 @@ class IngestOrchestrator:
 
     def _get_job(self, job_id: str) -> dict[str, object] | None:
         if self.job_repo is not None:
-            return self.job_repo.get_job(job_id)
+            job = self.job_repo.get_job(job_id)
+            if job is None:
+                return None
+            # Adapt DB job shape to API response shape expected by IngestStatusResponse
+            return {
+                'job_id': job.get('job_id', job_id),
+                'status': job.get('status', 'completed'),
+                'pages_seen': job.get('pages_fetched', 0),
+                'documents_upserted': 0,
+                'chunks_upserted': 0,
+            }
         return self._legacy_jobs.jobs.get(job_id)
 
     def run(self, scope: str) -> dict[str, object]:
@@ -70,8 +82,8 @@ class IngestOrchestrator:
 
         config = CrawlConfig(
             seeds=seeds,
-            allowed_domains=['docs.stripe.com'],
-            allowed_paths=['/payments', '/billing', '/webhooks', '/api', '/testing'],
+            allowed_domains={'docs.stripe.com'},
+            allowed_path_prefixes=('/payments', '/billing', '/webhooks', '/api', '/testing'),
         )
 
         pages, stats = crawl_stripe_docs_sync(

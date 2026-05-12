@@ -1,0 +1,74 @@
+[
+  {
+    "question": "What is a PaymentIntent and how do I use it?",
+    "answer": "The documentation excerpts do not provide a definition or detailed explanation of a PaymentIntent. Therefore, I cannot answer your question based on the provided sources.",
+    "citations": [
+      {
+        "label": "Stripe Docs - Tokens",
+        "url": "https://docs.stripe.com/api/tokens#element-title",
+        "snippet": "The card this token will represent. If you also pass in a customer, the card must be the ID of a card belonging to the customer. Otherwise, if you do not pass in a customer, thi..."
+      },
+      {
+        "label": "Stripe Docs - Dynamic payment methods",
+        "url": "https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods#exclude-payment-methods",
+        "snippet": "While dynamic payment methods allows you to manage payment methods through the Dashboard, you can also exclude specific payment methods on a per-transaction basis using the excl..."
+      },
+      {
+        "label": "Stripe Docs - List all charges",
+        "url": "https://docs.stripe.com/api/charges/list",
+        "snippet": "curl -G https://api.stripe.com/v1/charges \\ -u \" sk_test_Ho24N7L...tbmpjc377lJI sk_test_Ho24N7La5CVDtbmpjc377lJI : \" \\ -d limit=3 Response { \" object \" : \" list \" , \" url \" : \"..."
+      }
+    ],
+    "session_id": "6b837ee0-632c-41db-9fa1-366de2bdd985",
+    "trace_id": "70b44c8f-84b8-4f90-8679-c8a546be3aee",
+    "latency_ms": 9309
+  },
+  {
+    "question": "How do I handle webhook signature verification?",
+    "answer": "To handle webhook signature verification, you need to verify the signature using the raw body of the request and your endpoint secret. Here’s a snippet of code to illustrate this:\n\n```ruby\n# Check that you have configured webhook signing if endpoint_secret\n# Retrieve the event by verifying the signature using the raw body and the endpoint secret\nsignature = request.env['HTTP_STRIPE_SIGNATURE']\nbegin\n  event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)\nrescue Stripe::SignatureVerificationError => e\n  puts \"⚠️ Webhook signature verification failed. #{e.message}\"\n  status 400\nend\n```\n\nMake sure to replace `endpoint_secret` with your unique endpoint secret key.",
+    "citations": [
+      {
+        "label": "Stripe Docs - Receba eventos da Stripe no seu endpoint de webhook",
+        "url": "https://docs.stripe.com/webhooks#example-endpoint",
+        "snippet": "you defined your endpoint using the API or the Dashboard, check your webhook settings for your endpoint secret: https://dashboard.stripe.com/webhooks endpoint_secret = 'whsec_....."
+      },
+      {
+        "label": "Stripe Docs - Migrate from snapshot events to thin events",
+        "url": "https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events#run-in-shadow-mode",
+        "snippet": "Update your thin webhook handler to fetch event details and related objects—but don’t write to your database yet. Instead, log what actions you would take so you can monitor tha..."
+      },
+      {
+        "label": "Stripe Docs - Receba eventos da Stripe no seu endpoint de webhook",
+        "url": "https://docs.stripe.com/webhooks#handle-events-asynchronously",
+        "snippet": "Configure seu gerenciador para processar eventos de entrada com uma fila assíncrona. Você pode encontrar problemas de escalabilidade se optar por processar eventos de forma sínc..."
+      }
+    ],
+    "session_id": "6138ed4e-4f08-4dfa-a92b-42a59b6c9810",
+    "trace_id": "389f2be2-0f52-4129-9eee-c8d476604f70",
+    "latency_ms": 9788
+  },
+  {
+    "question": "What is the difference between a PaymentIntent and a SetupIntent?",
+    "answer": "The provided documentation excerpts do not contain specific information about the differences between a PaymentIntent and a SetupIntent. Therefore, I cannot answer that question based on the available sources.",
+    "citations": [
+      {
+        "label": "Stripe Docs - Payment method support for platforms and marketplaces",
+        "url": "https://docs.stripe.com/payments/payment-methods/payment-method-connect-support",
+        "snippet": "If a mandate is authorized for a PaymentIntent or SetupIntent on_behalf_of a connected account, you can’t use that mandate with a different connected account. When collecting a..."
+      },
+      {
+        "label": "Stripe Docs - Débito automático ACH",
+        "url": "https://docs.stripe.com/payments/ach-direct-debit",
+        "snippet": "If a mandate is authorized for a PaymentIntent or SetupIntent on_behalf_of a connected account, you can’t use that mandate with a different connected account. When collecting a..."
+      },
+      {
+        "label": "Stripe Docs - Migrate existing bank accounts",
+        "url": "https://docs.stripe.com/payments/ach-direct-debit/migrating-from-charges#mandate-acknowledgement",
+        "snippet": "Confirming a PaymentIntent or SetupIntent requires having your customer authorize a mandate to debit the account. Learn more about SEC codes to understand which authorization ty..."
+      }
+    ],
+    "session_id": "930ce0d3-5024-4ee7-bfb4-ba9209944140",
+    "trace_id": "f76488f9-3c5f-47e7-a0af-c8bed0f9e5a6",
+    "latency_ms": 9110
+  }
+]
