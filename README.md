@@ -1,25 +1,36 @@
 # Stripe Docs RAG (MCP Server)
 
-This branch exposes the Stripe documentation knowledge base through a local MCP server so Claude Desktop can call it as a tool.
+This branch exposes the Stripe documentation knowledge base as a native **Claude Desktop tool** via the **Model Context Protocol (MCP)**.
 
 ## What this branch is
 
-- Branch: `mcp-version`
-- Transport: MCP `stdio`
-- Server entrypoint: `app/mcp_server.py`
-- Main tool: `search_stripe_docs(query, top_k=8)`
+- **Branch:** `mcp-version`
+- **Transport:** MCP `stdio`
+- **Server Entrypoint:** `app/mcp_server.py`
+- **Main Tool:** `search_stripe_docs(query, top_k=8)`
 
-It uses the same underlying ingestion/retrieval pipeline and Supabase pgvector store as the API branch, but integrates as an MCP tool instead of FastAPI-first chat.
+It uses the same underlying ingestion/retrieval pipeline and Supabase pgvector store as the `master` branch, but integrates as an MCP tool instead of a FastAPI-first chat service.
+
+## Architecture (MCP)
+
+```
+Claude Desktop
+      │
+      ▼
+┌─────────────┐    ┌──────────────┐    ┌─────────────────┐
+│ MCP Server   │───▶│ Search       │───▶│ pgvector        │
+│ (stdio)      │    │ Service      │    │ (Supabase)       │
+└─────────────┘    └──────────────┘    └─────────────────┘
+      │                    ▲
+      └────────────────────┘
+        (Returns Markdown)
+```
 
 ## Prerequisites
 
 - Python 3.10+
 - Claude Desktop installed
-- A `.env` file with at least:
-  - `SUPABASE_DB_URL`
-
-Optional (for eval/judge paths):
-- `LLM_API_KEY`
+- A `.env` file with `SUPABASE_DB_URL` configured
 
 ## Installation
 
@@ -27,36 +38,34 @@ Optional (for eval/judge paths):
 pip install -e ".[dev]"
 ```
 
-Create env file:
+Create a local env file from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-## Ingest Stripe docs (optional, if DB is empty)
+## Environment Configuration
 
-This branch includes a crawler/ingest script:
+The app supports branch-specific Supabase overrides. For this branch, you can use either the base variables or the `*_MASTER` overrides (which take precedence):
+
+- `SUPABASE_DB_URL` (or `SUPABASE_DB_URL_MASTER`)
+
+These are already configured in `.env.example` to point to the dedicated technical test database.
+
+## Ingesting the Documentation
+
+This branch includes the same high-quality crawler and ingestion pipeline as `master`:
 
 ```bash
 python scripts/ingest_all.py
 ```
 
-The script performs a deep crawl and upserts documents/chunks into Supabase.
+The script performs a deep crawl of the live Stripe documentation and upserts semantic chunks into Supabase.
 
-## Run MCP server locally
+## Claude Desktop Setup (Option C)
 
-From the project root:
-
-```bash
-python app/mcp_server.py
-```
-
-It runs using `stdio` transport (required by Claude Desktop MCP integration).
-
-## Claude Desktop setup (Option C)
-
-1. Open Claude Desktop -> Settings -> Developer -> Open/Edit Config.
-2. Add this MCP server entry (replace `YOUR_ABSOLUTE_PATH_TO_PROJECT`):
+1. Open **Claude Desktop** -> **Settings** -> **Developer** -> **Open/Edit Config**.
+2. Add this MCP server entry (replace `YOUR_ABSOLUTE_PATH_TO_PROJECT` with the full path to this repository):
 
 ```json
 {
@@ -66,7 +75,7 @@ It runs using `stdio` transport (required by Claude Desktop MCP integration).
       "args": ["app/mcp_server.py"],
       "cwd": "YOUR_ABSOLUTE_PATH_TO_PROJECT",
       "env": {
-        "SUPABASE_DB_URL": "postgresql://readonly_recruiter:***@db.hxmpdytlsejvbkasrhlb.supabase.co:5432/postgres",
+        "SUPABASE_DB_URL": "postgresql://postgres.rmdfvtrdlcvrupukwogu:MasterRAG2026!@aws-0-us-west-1.pooler.supabase.com:5432/postgres",
         "PYTHONPATH": "YOUR_ABSOLUTE_PATH_TO_PROJECT"
       }
     }
@@ -75,24 +84,18 @@ It runs using `stdio` transport (required by Claude Desktop MCP integration).
 ```
 
 3. Restart Claude Desktop.
-4. Ask Claude something like:
+4. Look for the 🔌 icon in the chat bar. You can now ask:
    - "How do I confirm a PaymentIntent using Stripe?"
 
-Claude should automatically call the `search_stripe_docs` tool.
+Claude will automatically call the `search_stripe_docs` tool to find grounded evidence.
 
 ## Troubleshooting
 
-- If tool is not visible:
-  - Confirm JSON config is valid.
-  - Confirm `cwd` and `PYTHONPATH` are absolute paths.
-  - Restart Claude Desktop fully.
-- If tool errors on query:
-  - Verify `SUPABASE_DB_URL` is reachable.
-  - Verify your database has ingested documents.
-- If Python import fails:
-  - Run from project root or ensure `PYTHONPATH` points to root.
+- **Tool is not visible:** Confirm your `config.json` is valid JSON and use absolute paths for `cwd` and `PYTHONPATH`. Restart Claude Desktop fully.
+- **Connection Error:** Verify `SUPABASE_DB_URL` is reachable and that you have run the migrations/ingestion.
+- **Encoding Issues:** This server is pre-configured to force UTF-8 for the `stdio` transport, which is required for Windows compatibility.
 
 ## Notes
 
-- This branch focuses on MCP server integration (technical test Option C).
-- The API-oriented branch remains `master`.
+- This branch focuses on the **deep-dive Option C (MCP Server)**.
+- The standard FastAPI RAG service is available on the `master` branch.
