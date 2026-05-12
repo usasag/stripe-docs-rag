@@ -36,6 +36,16 @@ User Question
 
 ## Quick Start
 
+> ⚠️ WARNING — TEST KEYS ARE INTENTIONALLY EXPOSED IN THIS REPOSITORY
+>
+> This repository includes exposed test credentials in `.env.example` on purpose for technical-test simplicity.
+>
+> I am fully aware this is not secure and must never be done in production.
+>
+> In no way, shape, or form should these keys be exposed in any real production environment.
+>
+> For real deployments, use secure secret management and rotate all credentials.
+
 ### Prerequisites
 
 - Python 3.10+
@@ -46,6 +56,53 @@ User Question
 ```bash
 pip install -e ".[dev]"
 ```
+
+### Environment configuration
+
+Create a local env file from the example:
+
+```bash
+cp .env.example .env
+```
+
+#### LLM provider setup
+
+This project supports two providers for answer synthesis:
+
+- `github` (GitHub Models API)
+- `anthropic` (Claude API)
+
+Set in `.env`:
+
+- `LLM_PROVIDER` = `github` or `anthropic`
+- `LLM_MODEL` is set automatically by setup (hardcoded per provider):
+  - GitHub -> `gpt-4o-mini`
+  - Anthropic -> `claude-sonnet-4-5-20250929`
+- `LITELLM_API_KEY` for GitHub provider
+- `ANTHROPIC_API_KEY` for Anthropic provider
+
+If you run `python scripts/demo.py` with no API keys set, the script will:
+
+1. Ask you to choose a provider (`github` or `anthropic`)
+2. Inform you of the fixed model for that provider
+3. Ask for your API key
+4. Validate the key with a quick provider API call
+5. Persist `LLM_PROVIDER`, `LLM_MODEL`, and key into `.env`
+
+If an API key is already set, it prints: `API keys set successfully`.
+
+#### Supabase env precedence
+
+The app loads settings from `.env` and supports branch-specific Supabase overrides.
+For each Supabase field, `*_MASTER` takes precedence over the base variable:
+
+- `SUPABASE_URL_MASTER` -> `SUPABASE_URL`
+- `SUPABASE_ANON_KEY_MASTER` -> `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY_MASTER` -> `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL_MASTER` -> `SUPABASE_DB_URL`
+
+If you are only using one environment, set the base variables.
+If you are working on `master` while keeping another branch configured, set both and use the `*_MASTER` values for this branch.
 
 ### Running the API
 

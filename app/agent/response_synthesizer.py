@@ -17,25 +17,15 @@ def _build_context(ranked_results: list[dict[str, Any]], citations: list[dict[st
     return '\n\n---\n\n'.join(blocks)
 
 
-def _call_llm(system: str, user: str) -> str | None:
-    """Call the GitHub Models API (gpt-4o-mini) via httpx. Returns None on failure."""
-    # Try pydantic Settings first (loads .env), fall back to os.environ
-    api_key = os.environ.get('LITELLM_API_KEY')
-    if not api_key:
-        try:
-            from app.core.config import get_settings
-            api_key = getattr(get_settings(), 'litellm_api_key', None)
-        except Exception:
-            pass
-    if not api_key:
-        return None
+def _call_github_models(api_key: str, system: str, user: str, model: str) -> str | None:
     try:
         import httpx
+
         resp = httpx.post(
             'https://models.inference.ai.azure.com/chat/completions',
             headers={'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'},
             json={
-                'model': 'gpt-4o-mini',
+                'model': model,
                 'messages': [
                     {'role': 'system', 'content': system},
                     {'role': 'user', 'content': user},
@@ -47,6 +37,67 @@ def _call_llm(system: str, user: str) -> str | None:
         )
         resp.raise_for_status()
         return resp.json()['choices'][0]['message']['content'].strip()
+    except Exception:
+        return None
+
+
+def _call_anthropic(api_key: str, system: str, user: str, model: str) -> str | None:
+    try:
+        import httpx
+
+        resp = httpx.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'Content-Type': 'application/json',
+            },
+            json={
+                'model': model,
+                'max_tokens': 512,
+                'temperature': 0.2,
+                'system': system,
+                'messages': [
+                    {'role': 'user', 'content': user},
+                ],
+            },
+            timeout=20.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        parts = data.get('content', [])
+        text_parts = [p.get('text', '') for p in parts if p.get('type') == 'text']
+        out = ''.join(text_parts).strip()
+        return out or None
+    except Exception:
+        return None
+
+
+def _call_llm(system: str, user: str) -> str | None:
+    """Call configured LLM provider. Returns None on failure or missing credentials."""
+    try:
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        provider = (settings.llm_provider or os.environ.get('LLM_PROVIDER') or 'github').strip().lower()
+        model = (settings.llm_model or os.environ.get('LLM_MODEL') or 'gpt-4o-mini').strip()
+
+        github_key = os.environ.get('LITELLM_API_KEY') or settings.litellm_api_key
+        anthropic_key = os.environ.get('ANTHROPIC_API_KEY') or settings.anthropic_api_key
+
+        if provider == 'anthropic':
+            key = anthropic_key
+            if not key:
+                return None
+            model = model or 'claude-3-5-sonnet-latest'
+            return _call_anthropic(key, system, user, model)
+
+        # default: github models
+        key = github_key
+        if not key:
+            return None
+        model = model or 'gpt-4o-mini'
+        return _call_github_models(key, system, user, model)
     except Exception:
         return None
 

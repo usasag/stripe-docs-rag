@@ -8,17 +8,48 @@ Then run this script:
     python scripts/demo.py
 """
 import json
+import subprocess
 import sys
+from pathlib import Path
 
 import httpx
 
 BASE_URL = "http://localhost:8000"
+ROOT = Path(__file__).resolve().parents[1]
 
 QUESTIONS = [
     "What is a PaymentIntent and how do I use it?",
     "How do I handle webhook signature verification?",
     "What is the difference between a PaymentIntent and a SetupIntent?",
 ]
+
+
+def _parse_env(path: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not path.exists():
+        return out
+    for line in path.read_text(encoding="utf-8").splitlines():
+        s = line.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        k, v = s.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
+def ensure_llm_config() -> None:
+    env = _parse_env(ROOT / ".env")
+    has_github = bool(env.get("LITELLM_API_KEY", "").strip())
+    has_anthropic = bool(env.get("ANTHROPIC_API_KEY", "").strip())
+    if has_github or has_anthropic:
+        print("API keys set successfully")
+        return
+
+    print("[setup] No LLM API key detected. Starting interactive LLM setup...")
+    result = subprocess.run([sys.executable, str(ROOT / "scripts" / "configure_llm.py")])
+    if result.returncode != 0:
+        print("[ERROR] LLM setup failed. Aborting demo run.")
+        sys.exit(result.returncode)
 
 
 def ask(question: str) -> dict:
@@ -50,6 +81,7 @@ def format_response(question: str, data: dict) -> dict:
 
 
 def main():
+    ensure_llm_config()
     print("=" * 70)
     print("  Stripe Docs RAG Agent — Demo")
     print("=" * 70)

@@ -33,7 +33,10 @@ class Settings(BaseSettings):
     crawler_delay_ms: int = 500
 
     # LLM synthesis
-    litellm_api_key: str | None = None
+    llm_provider: str = "github"  # github | anthropic
+    llm_model: str = "gpt-4o-mini"
+    litellm_api_key: str | None = None  # GitHub Models API key
+    anthropic_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
