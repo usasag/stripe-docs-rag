@@ -25,7 +25,7 @@ def ask(question: str) -> dict:
     response = httpx.post(
         f"{BASE_URL}/chat",
         json={"message": question},
-        timeout=30.0,
+        timeout=60.0,
     )
     response.raise_for_status()
     return response.json()
@@ -39,7 +39,7 @@ def format_response(question: str, data: dict) -> dict:
             {
                 "label": c["label"],
                 "url": c["url"],
-                "snippet": c["snippet"][:120] + "..." if len(c.get("snippet", "")) > 120 else c.get("snippet", ""),
+                "snippet": c.get("snippet", ""),
             }
             for c in data.get("citations", [])
         ],
@@ -66,6 +66,13 @@ def main():
         sys.exit(1)
 
     results = []
+    # Warmup: ensure the embedding model is loaded before timed questions
+    print("[warmup] Loading embedding model...")
+    try:
+        httpx.post(f"{BASE_URL}/chat", json={"message": "ping"}, timeout=90.0)
+        print("[warmup] Done.\n")
+    except Exception:
+        print("[warmup] Skipped.\n")
     for i, question in enumerate(QUESTIONS, 1):
         print(f"[{i}/{len(QUESTIONS)}] Asking: {question!r}")
         try:

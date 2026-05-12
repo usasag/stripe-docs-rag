@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     crawler_max_pages: int = 100
     crawler_delay_ms: int = 500
 
+    # LLM synthesis
+    litellm_api_key: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
