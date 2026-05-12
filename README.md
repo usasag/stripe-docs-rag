@@ -1,42 +1,98 @@
 # Stripe Docs RAG (MCP Server)
 
-This project is a production-ready **Model Context Protocol (MCP) Server** designed to ground AI models (like Claude) in the official Stripe documentation. It provides Claude with direct access to a highly optimized, noise-free vector database containing the official Stripe API reference and implementation guides.
+This branch exposes the Stripe documentation knowledge base through a local MCP server so Claude Desktop can call it as a tool.
 
-### Features
-- **Native MCP Integration**: Designed specifically as an "Option C" MCP Server, allowing Claude Desktop to use it as a powerful semantic search engine while retaining full synthesis and reasoning capabilities.
-- **Noise-Free HTML Extraction**: Features a highly tuned HTML parser that aggressively isolates `<article>` content, ensuring that navigational sidebars, footers, and raw JSON payloads never pollute the context window.
-- **Automated Ingestion Pipeline**: Includes a native Python asynchronous web crawler (`scripts/ingest_all.py`) and chunking/embedding engine (`sentence-transformers`) that accurately maps, chunks, and stores documentation into a Supabase Postgres/pgvector database.
-- **FastMCP Protocol**: Built entirely in Python using the modern `fastmcp` library via `stdio` transport for lightweight, local-first integration.
+## What this branch is
 
-## Setup and Usage
-## Claude Desktop (MCP Server) Setup - Option C
+- Branch: `mcp-version`
+- Transport: MCP `stdio`
+- Server entrypoint: `app/mcp_server.py`
+- Main tool: `search_stripe_docs(query, top_k=8)`
 
-To chat with the Stripe Docs agent natively inside **Claude Desktop**, you can connect it via our Model Context Protocol (MCP) Server.
+It uses the same underlying ingestion/retrieval pipeline and Supabase pgvector store as the API branch, but integrates as an MCP tool instead of FastAPI-first chat.
 
-1. Make sure you have the free **Claude Desktop** app installed.
-2. Open your Claude Desktop config file, this can be found clicking on your name at the bottom left corner of the app and selecting "Settings", then going into Developer Settings. Click on "Open/Edit Config".
-3. Add the following configuration (replace `YOUR_ABSOLUTE_PATH_TO_PROJECT` with the actual absolute path of this project, if the directory already exists, simply append the 'mcpServers' field to the JSON content):
+## Prerequisites
+
+- Python 3.10+
+- Claude Desktop installed
+- A `.env` file with at least:
+  - `SUPABASE_DB_URL`
+
+Optional (for eval/judge paths):
+- `LLM_API_KEY`
+
+## Installation
+
+```bash
+pip install -e ".[dev]"
+```
+
+Create env file:
+
+```bash
+cp .env.example .env
+```
+
+## Ingest Stripe docs (optional, if DB is empty)
+
+This branch includes a crawler/ingest script:
+
+```bash
+python scripts/ingest_all.py
+```
+
+The script performs a deep crawl and upserts documents/chunks into Supabase.
+
+## Run MCP server locally
+
+From the project root:
+
+```bash
+python app/mcp_server.py
+```
+
+It runs using `stdio` transport (required by Claude Desktop MCP integration).
+
+## Claude Desktop setup (Option C)
+
+1. Open Claude Desktop -> Settings -> Developer -> Open/Edit Config.
+2. Add this MCP server entry (replace `YOUR_ABSOLUTE_PATH_TO_PROJECT`):
+
 ```json
 {
   "mcpServers": {
     "stripe-docs": {
       "command": "python",
-      "args": [
-        "app/mcp_server.py"
-      ],
+      "args": ["app/mcp_server.py"],
       "cwd": "YOUR_ABSOLUTE_PATH_TO_PROJECT",
       "env": {
-        "SUPABASE_DB_URL": "postgresql://readonly_recruiter:temp_30_day_token_123@db.hxmpdytlsejvbkasrhlb.supabase.co:5432/postgres",
+        "SUPABASE_DB_URL": "postgresql://readonly_recruiter:***@db.hxmpdytlsejvbkasrhlb.supabase.co:5432/postgres",
         "PYTHONPATH": "YOUR_ABSOLUTE_PATH_TO_PROJECT"
       }
     }
   }
 }
 ```
-4. Restart Claude Desktop. You will now see a 🔨 **Tools** icon indicating the `search_stripe_docs` tool is attached. You can now simply ask Claude: *"How do I confirm a PaymentIntent using Stripe?"* and it will use the knowledge base automatically!
-- Install deps
-- Start API with: `uvicorn app.main:app --reload`
 
-## Health Check
+3. Restart Claude Desktop.
+4. Ask Claude something like:
+   - "How do I confirm a PaymentIntent using Stripe?"
 
-`GET /health` returns `{"status": "ok"}`.
+Claude should automatically call the `search_stripe_docs` tool.
+
+## Troubleshooting
+
+- If tool is not visible:
+  - Confirm JSON config is valid.
+  - Confirm `cwd` and `PYTHONPATH` are absolute paths.
+  - Restart Claude Desktop fully.
+- If tool errors on query:
+  - Verify `SUPABASE_DB_URL` is reachable.
+  - Verify your database has ingested documents.
+- If Python import fails:
+  - Run from project root or ensure `PYTHONPATH` points to root.
+
+## Notes
+
+- This branch focuses on MCP server integration (technical test Option C).
+- The API-oriented branch remains `master`.
