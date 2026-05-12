@@ -33,8 +33,13 @@ class Settings(BaseSettings):
     crawler_delay_ms: int = 500
 
     # LLM Settings
-    llm_judge_model: str = "github/gpt-4o"
-    llm_api_key: str | None = None  # GitHub Models API key
+    llm_provider: str = "github"  # github | anthropic
+    llm_model: str = "gpt-4o-mini"
+    litellm_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LITELLM_API_KEY", "LLM_API_KEY"),
+    )
+    anthropic_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

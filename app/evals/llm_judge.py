@@ -15,19 +15,32 @@ class JudgeScores(BaseModel):
 class LiteLLMJudge:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.model = self.settings.llm_judge_model
-        # Use litellm if api key is provided, else we fallback
-        if self.settings.llm_api_key:
+        self.provider = self.settings.llm_provider
+        
+        # If model is not explicitly a full LiteLLM path (like "anthropic/claude-..."), 
+        # we prefix it based on the provider.
+        if self.provider == "github":
+            self.model = f"github/{self.settings.llm_model}"
+            self.api_key = self.settings.litellm_api_key
+        elif self.provider == "anthropic":
+            self.model = f"anthropic/{self.settings.llm_model}"
+            self.api_key = self.settings.anthropic_api_key
+        else:
+            self.model = f"github/{self.settings.llm_model}"
+            self.api_key = self.settings.litellm_api_key
+
+        if self.api_key:
             import os
-            os.environ["LITELLM_API_KEY"] = self.settings.llm_api_key
-            # If using GitHub models or specific ones, we might need specific keys, 
-            # but litellm typically routes OPENAI_API_KEY, ANTHROPIC_API_KEY, or we can just pass api_key directly.
+            if self.provider == "github":
+                os.environ["LITELLM_API_KEY"] = self.api_key
+            elif self.provider == "anthropic":
+                os.environ["ANTHROPIC_API_KEY"] = self.api_key
         
     def evaluate(self, question: str, answer: str, context: str, expected_points: list[str]) -> dict:
         """Evaluates a RAG turn and returns a dictionary of 1-5 scalar scores."""
         
-        if not self.settings.llm_api_key:
-            logger.warning("LLM Judge is disabled (no llm_api_key). Returning default scores.")
+        if not self.api_key:
+            logger.warning("LLM Judge is disabled (no API key). Returning default scores.")
             return {
                 "faithfulness": 3,
                 "relevance": 3,
@@ -81,7 +94,7 @@ Generated Answer:
                 model=self.model,
                 fallbacks=fallback_models,
                 messages=messages,
-                api_key=self.settings.llm_api_key,
+                api_key=self.api_key,
                 response_format={"type": "json_object"},
                 max_tokens=1024,
                 temperature=0.0
