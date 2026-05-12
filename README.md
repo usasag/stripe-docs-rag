@@ -76,6 +76,14 @@ curl.exe -X POST http://localhost:8000/chat -H "Content-Type: application/json" 
 
 Response includes a synthesized answer, source citations with URLs, and a trace ID for debugging.
 
+### Demo Script
+
+Alternatively, run the included demo script to query 3 representative questions and write the full structured JSON output to `demo_output.json` — no curl required:
+
+```bash
+python scripts/demo.py
+```
+
 ## Evaluation
 
 The project includes 15 golden Q&A pairs covering payments, billing, webhooks, testing, and Connect. Run the evaluation suite via:

@@ -72,3 +72,6 @@ cover/
 # Project specific
 graphify-out/
 scratch/
+
+PLACEHOLDERS.md
+EXPLANATION_SCRIPT.md
