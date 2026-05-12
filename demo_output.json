@@ -1,74 +1,104 @@
 [
   {
     "question": "What is a PaymentIntent and how do I use it?",
-    "answer": "The documentation excerpts do not provide a definition or detailed explanation of a PaymentIntent. Therefore, I cannot answer your question based on the provided sources.",
+    "answer": "A PaymentIntent is an object that represents the process of collecting a payment from a customer. It starts with the status `requires_payment_method`, meaning Stripe needs details about the customer's payment method to proceed. You can create a PaymentIntent to accept a payment immediately or use the SetupIntents API to collect payment method details for future payments. \n\nTo use a PaymentIntent, you typically create it via the API, providing necessary details like amount and currency, and then attach a PaymentMethod to it. For more information, refer to the PaymentIntents API documentation.",
     "citations": [
-      {
-        "label": "Stripe Docs - Tokens",
-        "url": "https://docs.stripe.com/api/tokens#element-title",
-        "snippet": "The card this token will represent. If you also pass in a customer, the card must be the ID of a card belonging to the customer. Otherwise, if you do not pass in a customer, thi..."
-      },
       {
         "label": "Stripe Docs - Dynamic payment methods",
         "url": "https://docs.stripe.com/payments/payment-methods/dynamic-payment-methods#exclude-payment-methods",
-        "snippet": "While dynamic payment methods allows you to manage payment methods through the Dashboard, you can also exclude specific payment methods on a per-transaction basis using the excl..."
+        "snippet": "While dynamic payment methods allows you to manage payment methods through the Dashboard, you can also exclude specific payment methods on a per-transaction basis using the excluded _ payment _ method _ types parameter when creating a PaymentIntent. This gives you control over which payment methods are available for each transaction, even if they’re enabled in your Dashboard settings. Today, excluded _ payment _ m..."
       },
       {
-        "label": "Stripe Docs - List all charges",
-        "url": "https://docs.stripe.com/api/charges/list",
-        "snippet": "curl -G https://api.stripe.com/v1/charges \\ -u \" sk_test_Ho24N7L...tbmpjc377lJI sk_test_Ho24N7La5CVDtbmpjc377lJI : \" \\ -d limit=3 Response { \" object \" : \" list \" , \" url \" : \"..."
+        "label": "Stripe Docs - Tour of the API",
+        "url": "https://docs.stripe.com/payments-api/tour#payment-methods",
+        "snippet": "A PaymentIntent starts with the status requires _ payment _ method . To move it forward, Stripe needs details about the customer’s payment method—either a card number or credentials for some other payment system. An integration represents these details using an API object called a PaymentMethod . In some integrations, you write the code that creates that object and attaches it to the PaymentIntent. In others, Stri..."
+      },
+      {
+        "label": "Stripe Docs - Payment Intents",
+        "url": "https://docs.stripe.com/api/payment_intents#element-title",
+        "snippet": "Settings to configure compatible payment methods from the Stripe Dashboard Show child attributes client _ secret nullable string retrievable with publishable key The client secret of this PaymentIntent. Used for client-side retrieval using a publishable key. The client secret can be used to complete a payment from your frontend. It should not be stored, logged, or exposed to anyone other than the customer. Make su..."
+      },
+      {
+        "label": "Stripe Docs - Build a subscriptions integration with Elements",
+        "url": "https://docs.stripe.com/payments/advanced/build-subscriptions#change-price",
+        "snippet": "Opcional Prévia de uma alteração de preço Cliente e servidor Opcional Exibir a forma de pagamento do cliente Cliente e servidor Divulgue a Stripe para seus clientes A Stripe coleta informações sobre interações do cliente com o Elements para fornecer serviços a você, evitar fraudes e melhorar os serviços. Isso inclui o uso de cookies e endereços IP para identificar quais Elements o cliente visualizou durante uma ún..."
+      },
+      {
+        "label": "Stripe Docs - Migrate to the Payment Element with the Checkout Sessions API",
+        "url": "https://docs.stripe.com/payments/payment-element/migration-ewcs#docs-markdoc-content-subtitle",
+        "snippet": "Pergunte sobre esta página Cópia para LLM Exibir como Markdown Instalar skills Previously, each payment method (cards, iDEAL, and so on) required a separate Element. By migrating to the Payment Element, you can accept many payment methods with a single Element. You can use additional capabilities by migrating to Checkout Sessions from Payment Intents, which enables your integration to manage subscriptions, discoun..."
       }
     ],
-    "session_id": "6b837ee0-632c-41db-9fa1-366de2bdd985",
-    "trace_id": "70b44c8f-84b8-4f90-8679-c8a546be3aee",
-    "latency_ms": 9309
+    "session_id": "cb175d59-7a2f-4c44-b4f9-f921832b7b61",
+    "trace_id": "7e93afd9-b8ac-473a-b22d-800f4f2c2135",
+    "latency_ms": 11083
   },
   {
     "question": "How do I handle webhook signature verification?",
-    "answer": "To handle webhook signature verification, you need to verify the signature using the raw body of the request and your endpoint secret. Here’s a snippet of code to illustrate this:\n\n```ruby\n# Check that you have configured webhook signing if endpoint_secret\n# Retrieve the event by verifying the signature using the raw body and the endpoint secret\nsignature = request.env['HTTP_STRIPE_SIGNATURE']\nbegin\n  event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)\nrescue Stripe::SignatureVerificationError => e\n  puts \"⚠️ Webhook signature verification failed. #{e.message}\"\n  status 400\nend\n```\n\nMake sure to replace `endpoint_secret` with your unique endpoint secret key.",
+    "answer": "To handle webhook signature verification, you need to verify the signature using the raw body of the request and your endpoint secret. Here’s a basic outline:\n\n1. Retrieve the raw body of the request.\n2. Get the signature from the request headers.\n3. Use the `Stripe::Webhook.construct_event` method to verify the signature with the payload and your endpoint secret.\n\nHere’s a code snippet example:\n\n```ruby\nsignature = request.env['HTTP_STRIPE_SIGNATURE']\nbegin\n  event = Stripe::Webhook.construct_event(payload, signature, endpoint_secret)\nrescue Stripe::SignatureVerificationError => e\n  puts \"⚠️ Webhook signature verification failed. #{e.message}\"\n  status 400\nend\n```\n\nMake sure to replace `endpoint_secret` with your unique endpoint secret key.",
     "citations": [
       {
         "label": "Stripe Docs - Receba eventos da Stripe no seu endpoint de webhook",
         "url": "https://docs.stripe.com/webhooks#example-endpoint",
-        "snippet": "you defined your endpoint using the API or the Dashboard, check your webhook settings for your endpoint secret: https://dashboard.stripe.com/webhooks endpoint_secret = 'whsec_....."
+        "snippet": "you defined your endpoint using the API or the Dashboard, check your webhook settings for your endpoint secret: https://dashboard.stripe.com/webhooks endpoint_secret = 'whsec_...' ; # Using Sinatra post '/webhook' do payload = request . body . read event = nil begin event = Stripe : : Event . construct_from ( JSON . parse ( payload , symbolize_names : true ) ) rescue JSON : : ParserError = > e # Invalid payload st..."
       },
       {
         "label": "Stripe Docs - Migrate from snapshot events to thin events",
         "url": "https://docs.stripe.com/webhooks/migrate-snapshot-to-thin-events#run-in-shadow-mode",
-        "snippet": "Update your thin webhook handler to fetch event details and related objects—but don’t write to your database yet. Instead, log what actions you would take so you can monitor tha..."
+        "snippet": "Update your thin webhook handler to fetch event details and related objects—but don’t write to your database yet. Instead, log what actions you would take so you can monitor that your thin handler behaves the same as your snapshot handler. Add these components to your handler from step 1: // Enable shadow mode via environment variable const SHADOW_MODE = process . env . SHADOW_MODE !== 'false' ; Fetch full event d..."
       },
       {
-        "label": "Stripe Docs - Receba eventos da Stripe no seu endpoint de webhook",
-        "url": "https://docs.stripe.com/webhooks#handle-events-asynchronously",
-        "snippet": "Configure seu gerenciador para processar eventos de entrada com uma fila assíncrona. Você pode encontrar problemas de escalabilidade se optar por processar eventos de forma sínc..."
+        "label": "Stripe Docs - How Metronome works with Stripe",
+        "url": "https://docs.stripe.com/billing/how-metronome-works-with-stripe#metronome-independently",
+        "snippet": "You send usage events to Metronome. Metronome processes them through metering, rating, and contract logic, then finalizes the invoices and pushes them to Stripe through the Invoicing API. Stripe handles payment collection, tax, revenue recognition, and reporting."
+      },
+      {
+        "label": "Stripe Docs - Como funcionam os cartões",
+        "url": "https://docs.stripe.com/payments/cards/overview#card-updates",
+        "snippet": "A atualização de um cartão salvo só pode alterar o nome, endereço de cobrança, data de validade ou metadados. Para fazer qualquer outra alteração, exclua o cartão e crie outro. Para permitir que os clientes gerenciem as próprias formas de pagamento, implemente processos que permitam a eles atualizar e substituir manualmente os cartões salvos. Para alterar a forma de pagamento padrão do cliente para faturas e assin..."
+      },
+      {
+        "label": "Stripe Docs - Aceitar um pagamento",
+        "url": "https://docs.stripe.com/payments/accept-a-payment#docs-markdoc-content-subtitle",
+        "snippet": "Pergunte sobre esta página Cópia para LLM Exibir como Markdown Instalar skills Crie um formulário de pagamento ou use uma página de checkout pré-integrada para começar a aceitar pagamentos online."
       }
     ],
-    "session_id": "6138ed4e-4f08-4dfa-a92b-42a59b6c9810",
-    "trace_id": "389f2be2-0f52-4129-9eee-c8d476604f70",
-    "latency_ms": 9788
+    "session_id": "0f845ded-8d6d-4899-9172-a472d4d9524a",
+    "trace_id": "2e5f65c3-cbd6-452f-bf88-01b4e16381d2",
+    "latency_ms": 11252
   },
   {
     "question": "What is the difference between a PaymentIntent and a SetupIntent?",
-    "answer": "The provided documentation excerpts do not contain specific information about the differences between a PaymentIntent and a SetupIntent. Therefore, I cannot answer that question based on the available sources.",
+    "answer": "The provided documentation excerpts do not contain information regarding the differences between a PaymentIntent and a SetupIntent.",
     "citations": [
       {
-        "label": "Stripe Docs - Payment method support for platforms and marketplaces",
-        "url": "https://docs.stripe.com/payments/payment-methods/payment-method-connect-support",
-        "snippet": "If a mandate is authorized for a PaymentIntent or SetupIntent on_behalf_of a connected account, you can’t use that mandate with a different connected account. When collecting a..."
+        "label": "Stripe Docs - The Event object",
+        "url": "https://docs.stripe.com/api/events/object#element-title",
+        "snippet": "Occurs when a reserve plan is created."
       },
       {
-        "label": "Stripe Docs - Débito automático ACH",
-        "url": "https://docs.stripe.com/payments/ach-direct-debit",
-        "snippet": "If a mandate is authorized for a PaymentIntent or SetupIntent on_behalf_of a connected account, you can’t use that mandate with a different connected account. When collecting a..."
+        "label": "Stripe Docs - Balances and settlement time",
+        "url": "https://docs.stripe.com/payments/balances#pending",
+        "snippet": "Funds in the pending state represent incoming transactions that haven’t settled into your balance. For example, when a customer makes a card payment, the charge amount (minus Stripe’s fee) appears in your pending balance until settlement. You can’t withdraw or spend these funds until they’re available. Eligible users have options to immediately access pending funds using Instant Payouts , or to reduce settlement t..."
       },
       {
-        "label": "Stripe Docs - Migrate existing bank accounts",
-        "url": "https://docs.stripe.com/payments/ach-direct-debit/migrating-from-charges#mandate-acknowledgement",
-        "snippet": "Confirming a PaymentIntent or SetupIntent requires having your customer authorize a mandate to debit the account. Learn more about SEC codes to understand which authorization ty..."
+        "label": "Stripe Docs - Amazon Pay payments",
+        "url": "https://docs.stripe.com/payments/amazon-pay#payment-flow",
+        "snippet": "Below is a demonstration of the Amazon Pay payment flow from your checkout page:"
+      },
+      {
+        "label": "Stripe Docs - Events",
+        "url": "https://docs.stripe.com/api/events#element-title",
+        "snippet": "Occurs when a reserve plan is created."
+      },
+      {
+        "label": "Stripe Docs - Types of events",
+        "url": "https://docs.stripe.com/api/events/types#element-title",
+        "snippet": "Occurs when a reserve plan is created."
       }
     ],
-    "session_id": "930ce0d3-5024-4ee7-bfb4-ba9209944140",
-    "trace_id": "f76488f9-3c5f-47e7-a0af-c8bed0f9e5a6",
-    "latency_ms": 9110
+    "session_id": "0edd64ec-ee41-4dad-a6bf-74fa80ba0f89",
+    "trace_id": "1babfc49-cc24-4c9e-952c-3b8ebeab74d0",
+    "latency_ms": 9472
   }
 ]

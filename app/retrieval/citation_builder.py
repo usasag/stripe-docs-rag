@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.retrieval.types import Citation, RetrievedChunk
 
 
-def _snippet(text: str, max_chars: int = 180) -> str:
+def _snippet(text: str, max_chars: int = 420) -> str:
     clean = ' '.join(text.split())
     if len(clean) <= max_chars:
         return clean

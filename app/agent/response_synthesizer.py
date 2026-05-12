@@ -7,7 +7,8 @@ from typing import Any
 def _build_context(ranked_results: list[dict[str, Any]], citations: list[dict[str, Any]]) -> str:
     """Build a grounded context block from retrieved chunks."""
     blocks: list[str] = []
-    for i, result in enumerate(ranked_results[:5], 1):
+    # Use more evidence to reduce false refusals on broad conceptual questions.
+    for i, result in enumerate(ranked_results[:8], 1):
         content = str(result.get('content') or '').strip()
         url = str(result.get('url') or '')
         title = str(result.get('title') or '')

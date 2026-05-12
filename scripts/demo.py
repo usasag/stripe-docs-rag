@@ -24,7 +24,7 @@ QUESTIONS = [
 def ask(question: str) -> dict:
     response = httpx.post(
         f"{BASE_URL}/chat",
-        json={"message": question},
+        json={"message": question, "top_k": 12, "max_citations": 5},
         timeout=60.0,
     )
     response.raise_for_status()
